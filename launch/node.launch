@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="gdb" default="false" />
+  <arg name="callgrind" default="false" />
+
+  <arg if="$(arg gdb)" name="prefix" value="gdb -ex run --args" />
+  <arg if="$(arg callgrind)" name="prefix" value="valgrind --tool=callgrind --instr-atstart=no" />
+  <param if="$(arg callgrind)" name="/bond_disable_heartbeat_timeout" value="true" />
+  <arg if="$(eval not callgrind and not gdb)" name="prefix" value="" />
+
+  <node name="road_boundary" pkg="road_boundary" type="road_boundary" launch-prefix="$(arg prefix)">
+    <!-- <rosparam file="$(arg file_path)" command="load" /> -->
+    <param name="path" value="/home/linh/Downloads/bags/cleantech/grid_map_drivable.png" />
+
+    <!-- <remap from="road_boundary/topic" to="/global_topic" /> -->
+  </node>
+</launch>
