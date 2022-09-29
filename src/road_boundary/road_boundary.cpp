@@ -41,7 +41,6 @@ road_boundary::RoadBoundary::read(const std::string& file_path)
   debug_image_ = image_.clone();
   image_size_ = image_.cols;
   params_.resolution = 0.1;
-  // max_distance_search_ = 15;
   return true;
 }
 
@@ -158,19 +157,8 @@ road_boundary::RoadBoundary::drawApproximateLine(std::vector<cv::Point2i> points
 {
   for (unsigned int i = 0; i < points.size() - 1; i++)
   {
-    // auto point = points[i];
-    // auto point_next = points[i + 1];
-    // if (point.x < 0 || point.y < 0 || point.x > 8000 || point.y > 8000)
-    //   continue;
-    // if (point_next.x < 0 || point_next.y < 0 || point_next.x > 8000 || point_next.y > 8000)
-    //   continue;
     cv::line(debug_image_, points[i], points[i + 1], cv::Scalar(255 * 255, 0, 255 * 255, 255 * 255), 1, cv::LINE_8);
   }
-  // for (const auto p : points)
-  // {
-  //   cv::circle(debug_image_, p, 2, cv::Scalar(255 * 255, 0, 255 * 255, 255 * 255));
-  //   // debug_image_.at<cv::Vec<uint16_t, 4>>(p.y, p.x) = cv::Scalar(255 * 255, 0, 255 * 255, 255 * 255);
-  // }
 }
 
 void
@@ -262,42 +250,6 @@ road_boundary::RoadBoundary::fitCurve(std::vector<cv::Point2i> points)
   auto split_points = splitPoints(points);
   std::vector<std::vector<cv::Point2i>> curves;
   std::cout << "SPLIT INTO " << split_points.size() << std::endl;
-  // for (const auto pset : split_points)
-  // {
-  //   std::cout << "CUR SET " << pset.size() << std::endl;
-  //   if (pset.size() < params_.min_set_size)
-  //   {
-  //     continue;
-  //   }
-  //   for (const auto p : pset)
-  //   {
-  //     std::cout << p.x << " " << p.y << std::endl;
-  //   }
-  //   std::vector<ppl::vertex<double>> data;
-  //   for (int i = 0; i < pset.size(); i++)
-  //   {
-  //     ppl::vertex<double> point2d {pset[i].x * 0.1, pset[i].y * 0.1, 0};
-  //     data.push_back(point2d);
-  //   }
-  //   std::vector<ppl::vertex<double>> control_points;
-  //   double tolerance = params_.tolerance;
-  //   auto stat = ppl::LERPer::extractB_path(data, control_points, tolerance);
-
-  //   std::cout << "CONTROL POINT " << control_points.size() << std::endl;
-  //   const int n = (control_points.size() + 2) / 3 - 1;
-  //   for (int i = 0; i < n; i++)
-  //   {
-  //     std::vector<cv::Point2d> cp;
-  //     for (int j = 0; j < 4; j++)
-  //     {
-  //       cv::Point2d point;
-  //       point.x = control_points[i * 3 + j].x * 10.0;
-  //       point.y = control_points[i * 3 + j].y * 10.0;
-  //       cp.push_back(point);
-  //       // debugDraw(point, true);
-  //     }
-  //     drawCubicBezier(cp);
-  //   }
   for (const auto pset : split_points)
   {
     std::cout << "CUR SET " << pset.size() << std::endl;
@@ -331,16 +283,6 @@ road_boundary::RoadBoundary::fitCurve(std::vector<cv::Point2i> points)
       output.push_back(p);
     }
     drawApproximateLine(output);
-
-    // std::vector<cv::Point2i> output;
-    // for (unsigned int i = 0; i < data.size(); i++)
-    // {
-    //   cv::Point2i p;
-    //   p.x = static_cast<int>(data[i].x * 10.0);
-    //   p.y = static_cast<int>(data[i].y * 10.0);
-    //   output.push_back(p);
-    // }
-
     std::cout << "=============\n";
   }
 }
