@@ -42,8 +42,10 @@ catkin_package(
 
 add_definitions(${catkin_DEFINITIONS})
 
+set(PPL_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/../point_projection")
 include_directories(
   include
+  ${PPL_INCLUDE_DIRS}
   SYSTEM ${catkin_INCLUDE_DIRS}
   SYSTEM ${OpenCV_INCLUDE_DIRS}
   SYSTEM ${PCL_INCLUDE_DIRS}

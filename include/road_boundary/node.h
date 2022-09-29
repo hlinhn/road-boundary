@@ -38,6 +38,8 @@ private:
   ros::Publisher distance_pub_;
 
   ros::Time last_saved_;
+  double distance_threshold_;
+  double time_threshold_;
   bool first_point_;
   cv::Point2i last_point_;
 
@@ -47,7 +49,6 @@ private:
   void cartographerCallback(const geometry_msgs::PoseWithCovarianceStamped& position);
   void findLeftAndRightEdge(cv::Point2i index);
   void reconfigureCallback(RoadBoundaryConfig& config, uint32_t /* level */);
-  void fitCurve(std::vector<cv::Point2i> points);
   void writeToOSMFile(const std::vector<cv::Point2d> nodes);
 
   std::vector<cv::Point2d> convertToGPS(const std::vector<cv::Point2i> points);

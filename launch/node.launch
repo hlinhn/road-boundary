@@ -11,7 +11,13 @@
   <node name="road_boundary" pkg="road_boundary" type="road_boundary" launch-prefix="$(arg prefix)">
     <!-- <rosparam file="$(arg file_path)" command="load" /> -->
     <param name="path" value="/home/linh/Downloads/bags/cleantech/grid_map_drivable.png" />
-
+    <param name="cosine_threshold" value="0.9"/>
+    <param name="distance_threshold" value="5.0"/>
+    <param name="search_threshold" value="7.0"/>
+    <param name="time_threshold" value="1.5"/>
+    <param name="split_distance_threshold" value="50.0"/>
+    <param name="min_set_size" value="7"/>
+    <param name="tolerance" value="0.3"/>
     <!-- <remap from="road_boundary/topic" to="/global_topic" /> -->
   </node>
 </launch>

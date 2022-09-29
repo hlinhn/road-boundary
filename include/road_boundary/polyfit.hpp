@@ -9,6 +9,7 @@
 //  See https://eigen.tuxfamily.org/dox/group__TutorialLinearAlgebra.html for different methods
 
 #include "Eigen/Dense"
+#include <Eigen/QR>
 
 template<typename T>
 std::vector<T>
@@ -52,10 +53,12 @@ polyfit_Eigen(const std::vector<T>& xValues,
   }
 
   VectorXf coefficients;
+
   if (useJacobi)
     coefficients = X.jacobiSvd(ComputeThinU | ComputeThinV).solve(Y);
   else
     coefficients = X.colPivHouseholderQr().solve(Y);
+  // coefficients = X.householderQr().solve(Y);
 
   return std::vector<T>(coefficients.data(), coefficients.data() + numCoefficients);
 }

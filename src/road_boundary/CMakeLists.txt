@@ -1,12 +1,25 @@
-file(GLOB SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp)
-
 add_executable(
   ${PROJECT_NAME}
-  ${SOURCES}
+  road_boundary.cpp
+  node.cpp
+  main.cpp
 )
 
 target_link_libraries(
   ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+  -lbz2
+)
+
+add_executable(
+  bag_process
+  road_boundary.cpp
+  bag_process.cpp
+)
+
+target_link_libraries(
+  bag_process
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   -lbz2
