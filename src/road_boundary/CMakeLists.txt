@@ -25,6 +25,13 @@ target_link_libraries(
   -lbz2
 )
 
+add_executable(
+  test_map
+  test_map.cpp
+  )
+
+target_link_libraries(test_map ${catkin_LIBRARIES})
+
 install(TARGETS ${PROJECT_NAME}
    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

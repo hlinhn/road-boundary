@@ -6,7 +6,7 @@
     <param name="path" value="/home/linh/Downloads/bags/cleantech/grid_map_drivable.png" />
     <param name="cosine_threshold" value="0.9"/>
     <param name="distance_threshold" value="5.0"/>
-    <param name="search_threshold" value="10.0"/>
+    <param name="search_threshold" value="15.0"/>
     <param name="bag" value="$(arg bag)" />
     <param name="topic" value="/global_odom" />
     <param name="time_threshold" value="1.5"/>

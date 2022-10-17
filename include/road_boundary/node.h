@@ -51,7 +51,6 @@ private:
   void reconfigureCallback(RoadBoundaryConfig& config, uint32_t /* level */);
   void writeToOSMFile(const std::vector<cv::Point2d> nodes);
 
-  std::vector<cv::Point2d> convertToGPS(const std::vector<cv::Point2i> points);
   RoadBoundary road_boundary_;
   dynamic_reconfigure::Server<RoadBoundaryConfig> dyn_reconf_server_;
 

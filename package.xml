@@ -21,5 +21,8 @@
   <depend>roscpp</depend>
   <depend>std_srvs</depend>
   <depend>std_msgs</depend>
+  <depend>lanelet2_io</depend>
+  <depend>lanelet2_matching</depend>
+  <depend>lanelet2_projection</depend>
 
 </package>

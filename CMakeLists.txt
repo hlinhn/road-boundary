@@ -12,6 +12,9 @@ set(PROJECT_CATKIN_DEPS
     roscpp
     std_srvs
     std_msgs
+    lanelet2_io
+    lanelet2_matching
+    lanelet2_projection
 )
 
 find_package(catkin REQUIRED

@@ -6,15 +6,30 @@
 #include "road_boundary/road_boundary.h"
 #include "road_boundary/polyfit.hpp"
 
+#include <bits/stdint-uintn.h>
 #include <boost/filesystem.hpp>
 #include <iostream>
+#include <lanelet2_core/primitives/GPSPoint.h>
+#include <lanelet2_core/primitives/Point.h>
+#include <lanelet2_io/Projection.h>
+#include <lanelet2_projection/UTM.h>
 #include <opencv2/core/types.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <optional>
+#include <osmium/builder/attr.hpp>
+#include <osmium/builder/osm_object_builder.hpp>
+#include <osmium/io/any_output.hpp>
+#include <osmium/osm/item_type.hpp>
+#include <osmium/osm/location.hpp>
 #include <ppl2/ppl.hpp>
 #include <stdexcept>
+#include <string>
 
-road_boundary::RoadBoundary::RoadBoundary() {}
+road_boundary::RoadBoundary::RoadBoundary()
+  : func_id_counter_ {0}
+{
+}
 
 void
 road_boundary::RoadBoundary::setPath(const std::string& path)
@@ -64,6 +79,48 @@ road_boundary::RoadBoundary::getDirection(const cv::Point2i prev, const cv::Poin
   return dir_vec;
 }
 
+std::optional<cv::Vec<uint16_t, 4>>
+road_boundary::RoadBoundary::queryPoint(const cv::Point2i index)
+{
+  if (index.x >= image_size_ || index.x < 0 || index.y >= image_size_ || index.y < 0)
+  {
+    return std::nullopt;
+  }
+  return image_.at<cv::Vec<uint16_t, 4>>(index.y, index.x);
+}
+
+bool
+road_boundary::RoadBoundary::checkPoint(const cv::Point2i index)
+{
+  for (int i = -1; i < 2; i++)
+  {
+    auto value_optional = queryPoint({index.x + i, index.y + i});
+    if (!value_optional)
+    {
+      continue;
+    }
+    auto value = value_optional.value();
+    if (value[0] < static_cast<uint16_t>(62000) || value[1] < 62000 || value[2] < 62000)
+    {
+      return true;
+    }
+  }
+  for (int i = -1; i < 2; i++)
+  {
+    auto value_optional = queryPoint({index.x + i, index.y - i});
+    if (!value_optional)
+    {
+      continue;
+    }
+    auto value = value_optional.value();
+    if (value[0] < static_cast<uint16_t>(62000) || value[1] < 62000 || value[2] < 62000)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::optional<cv::Point2i>
 road_boundary::RoadBoundary::searchPoint(const cv::Point2i current, const cv::Point2d direction)
 {
@@ -87,8 +144,7 @@ road_boundary::RoadBoundary::searchPoint(const cv::Point2i current, const cv::Po
       break;
     }
     debug_image_.at<cv::Vec<uint16_t, 4>>(index.y, index.x) = cv::Scalar(255 * 255, 255 * 255, 0, 255 * 255);
-    const auto value = image_.at<cv::Vec<uint16_t, 4>>(index.y, index.x);
-    if (value[0] < static_cast<uint16_t>(62000) || value[1] < 62000 || value[2] < 62000)
+    if (checkPoint(index))
     {
       return index;
     }
@@ -136,6 +192,12 @@ road_boundary::RoadBoundary::findSides(const cv::Point2i current, const cv::Poin
   left_vector.y = -direction.x;
   left_side = searchPoint(current, left_vector);
 
+  if (right_side.has_value() && left_side.has_value())
+  {
+    left_to_right_[left_side.value()] = right_side.value();
+    right_to_left_[right_side.value()] = left_side.value();
+  }
+
   return std::make_pair(left_side, right_side);
 }
 
@@ -153,12 +215,20 @@ road_boundary::RoadBoundary::debugDraw(cv::Point2i point, bool root)
 }
 
 void
-road_boundary::RoadBoundary::drawApproximateLine(std::vector<cv::Point2i> points)
+road_boundary::RoadBoundary::drawApproximateLine(std::vector<cv::Point2i> points, int func_id)
 {
   for (unsigned int i = 0; i < points.size() - 1; i++)
   {
     cv::line(debug_image_, points[i], points[i + 1], cv::Scalar(255 * 255, 0, 255 * 255, 255 * 255), 1, cv::LINE_8);
   }
+  cv::putText(debug_image_,
+              std::to_string(func_id),
+              points[0],
+              cv::FONT_HERSHEY_COMPLEX,
+              1,
+              cv::Scalar(0, 0, 0, 255 * 255),
+              1,
+              cv::LINE_8);
 }
 
 void
@@ -183,7 +253,7 @@ road_boundary::RoadBoundary::drawCubicBezier(std::vector<cv::Point2d> controls)
     points.push_back(p);
     std::cout << i << " " << p.x << " " << p.y << std::endl;
   }
-  drawApproximateLine(points);
+  drawApproximateLine(points, 0);
 }
 
 double
@@ -273,16 +343,254 @@ road_boundary::RoadBoundary::fitCurve(std::vector<cv::Point2i> points)
     }
     std::vector<double> results = polyfit_Eigen(xs, ys, 7);
     const auto fitted_val = polyval(results, xs);
+    func_id_counter_++;
+    func_id_map_[func_id_counter_] = results;
 
     for (unsigned int i = 0; i < xs.size(); i++)
     {
+      point_to_func_[pset[i]] = func_id_counter_;
       std::cout << xs[i] << " " << ys[i] << " " << fitted_val[i] << std::endl;
       cv::Point2i p;
       p.x = static_cast<int>(fitted_val[i] * 4000.0 + 4000);
       p.y = static_cast<int>(xs[i] * 4000.0 + 4000);
       output.push_back(p);
     }
-    drawApproximateLine(output);
+    drawApproximateLine(output, func_id_counter_);
     std::cout << "=============\n";
   }
+}
+
+std::vector<cv::Point2d>
+road_boundary::RoadBoundary::convertToGPS(const std::vector<cv::Point2i> points)
+{
+  std::vector<cv::Point2d> gps_points;
+  cv::Point2d center;
+  center.x = 1.3541351067 - 0.0015;
+  center.y = 103.695233561 + 0.00491;
+
+  double angle = 62;
+  double cos = std::cos(angle * M_PI / 180.0);
+  double sin = std::sin(angle * M_PI / 180.0);
+
+  auto projector = lanelet::projection::UtmProjector(lanelet::Origin({center.x, center.y}));
+  for (const auto point : points)
+  {
+    cv::Point2d rotated;
+    rotated.x = (point.x * cos - point.y * sin) * 0.1;
+    rotated.y = (point.y * cos + point.x * sin) * 0.1;
+    cv::Point2d gps;
+    auto gpspoint = projector.reverse(lanelet::BasicPoint3d(-rotated.y, -rotated.x, 0));
+    gps.x = gpspoint.lat;
+    gps.y = gpspoint.lon;
+    // gps.x = center.x - 0.1 * static_cast<double>(rotated.x) / 111320.0;
+    // gps.y = center.y - 0.1 * static_cast<double>(rotated.y) / (111320.0 * std::cos(M_PI * gps.x / 180.0));
+    gps_points.push_back(gps);
+  }
+  return gps_points;
+}
+
+std::vector<std::vector<cv::Point2i>>
+road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std::vector<cv::Point2i> right_points)
+{
+  std::vector<std::vector<cv::Point2i>> split;
+  std::vector<cv::Point2i> cur_left;
+  std::vector<cv::Point2i> cur_right;
+  int cur_left_func = -1;
+  int cur_right_func = -1;
+  int last_left_id = -1;
+  std::map<cv::Point2i, int, road_boundary::ComparePoints> point_to_index;
+
+  for (const auto p : left_points)
+  {
+    if (point_to_func_.count(p) == 0)
+    {
+      continue;
+    }
+    int id = point_to_func_[p];
+    if (cur_left_func == -1)
+    {
+      cur_left_func = id;
+    }
+    if (id != cur_left_func)
+    {
+      if (cur_left.size() > 1)
+      {
+        for (const auto pl : cur_left)
+        {
+          point_to_index[pl] = split.size();
+        }
+        split.push_back(cur_left);
+      }
+      cur_left.clear();
+      cur_left_func = id;
+      continue;
+    }
+
+    if (left_to_right_.count(p) > 0)
+    {
+      const auto corres = left_to_right_[p];
+      if (point_to_func_.count(corres) > 0)
+      {
+        int corres_id = point_to_func_[corres];
+        if (cur_right_func == -1)
+        {
+          cur_right_func = corres_id;
+        }
+        if (corres_id != cur_right_func)
+        {
+          if (cur_left.size() > 1)
+          {
+            for (const auto pl : cur_left)
+            {
+              point_to_index[pl] = split.size();
+            }
+            split.push_back(cur_left);
+          }
+          cur_left.clear();
+          cur_right_func = corres_id;
+        }
+      }
+    }
+    cur_left.push_back(p);
+  }
+  if (cur_left.size() > 1)
+  {
+    for (const auto pl : cur_left)
+    {
+      point_to_index[pl] = split.size();
+    }
+    split.push_back(cur_left);
+  }
+
+  last_left_id = split.size() - 1;
+  cur_left_func = -1;
+  cur_right_func = -1;
+  for (const auto p : right_points)
+  {
+    if (point_to_func_.count(p) == 0)
+    {
+      continue;
+    }
+    int id = point_to_func_[p];
+    if (cur_right_func == -1)
+    {
+      cur_right_func = id;
+    }
+    if (id != cur_right_func)
+    {
+      if (cur_right.size() > 1)
+      {
+        for (const auto pr : cur_right)
+        {
+          point_to_index[pr] = split.size();
+        }
+        split.push_back(cur_right);
+      }
+      cur_right.clear();
+      cur_right_func = id;
+      continue;
+    }
+
+    if (right_to_left_.count(p) > 0)
+    {
+      const auto corres = right_to_left_[p];
+      if (point_to_func_.count(corres) > 0)
+      {
+        int corres_id = point_to_func_[corres];
+        if (cur_left_func == -1)
+        {
+          cur_left_func = corres_id;
+        }
+        if (corres_id != cur_left_func)
+        {
+          if (cur_right.size() > 1)
+          {
+            for (const auto pr : cur_right)
+            {
+              point_to_index[pr] = split.size();
+            }
+            split.push_back(cur_right);
+          }
+          cur_right.clear();
+          cur_left_func = corres_id;
+        }
+      }
+    }
+    cur_right.push_back(p);
+  }
+  if (cur_right.size() > 1)
+  {
+    for (const auto pr : cur_right)
+    {
+      point_to_index[pr] = split.size();
+    }
+    split.push_back(cur_right);
+  }
+
+  for (int i = 0; i <= last_left_id; i++)
+  {
+    const auto pl = split[i];
+    for (const auto p : pl)
+    {
+      if (left_to_right_.count(p) > 0 && point_to_index.count(left_to_right_[p]) > 0)
+      {
+        std::cout << left_to_right_[p].x << " " << left_to_right_[p].y << std::endl;
+        std::cout << point_to_index[p] << " " << point_to_index[left_to_right_[p]] << std::endl;
+        lanelet_id_map_[i] = point_to_index[left_to_right_[p]];
+        break;
+      }
+    }
+  }
+  return split;
+}
+
+void
+road_boundary::RoadBoundary::writeToOsmFile(const std::vector<std::vector<cv::Point2d>> points)
+{
+  const osmium::io::File output_file {"test_osm_nodes.osm", "xml"};
+  osmium::io::Header header;
+  header.set("generator", "test_nodes");
+
+  const size_t initial_buffer_size = 10000;
+  osmium::memory::Buffer buffer {initial_buffer_size, osmium::memory::Buffer::auto_grow::yes};
+  using namespace osmium::builder::attr;
+  long node_id = 0;
+  osmium::io::Writer writer {output_file, header, osmium::io::overwrite::allow};
+  int way_id = 1;
+  for (const auto nodes : points)
+  {
+    std::vector<long> id_in_line;
+    for (size_t i = 0; i < nodes.size(); i++)
+    {
+      osmium::builder::add_node(buffer,
+                                _id(node_id + 1),
+                                _version(1),
+                                _timestamp(std::time(nullptr)),
+                                _location(osmium::Location {nodes[i].y, nodes[i].x}));
+      id_in_line.push_back(node_id + 1);
+      node_id++;
+    }
+    osmium::builder::add_way(buffer,
+                             _id(way_id),
+                             _version(1),
+                             _timestamp(std::time(nullptr)),
+                             _tags({{"type", "curbstone"}}),
+                             _nodes(id_in_line));
+    way_id++;
+  }
+  int lanelet_id = 1;
+  for (const auto idp : lanelet_id_map_)
+  {
+    std::cout << idp.first << " " << idp.second << std::endl;
+    osmium::builder::add_relation(buffer,
+                                  _id(lanelet_id),
+                                  _version(1),
+                                  _timestamp(std::time(nullptr)),
+                                  _tags({{"type", "lanelet"}}),
+                                  _member(osmium::item_type::way, idp.first + 1, "left"),
+                                  _member(osmium::item_type::way, idp.second + 1, "right"));
+    lanelet_id++;
+  }
+  writer(std::move(buffer));
+  writer.close();
 }

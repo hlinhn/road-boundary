@@ -1,4 +1,5 @@
 #include <enway_helper/param_helper.hpp>
+#include <ios>
 #include <nav_msgs/Odometry.h>
 #include <opencv2/core/types.hpp>
 #include <road_boundary/bag_process.h>
@@ -56,12 +57,10 @@ road_boundary::BagProcess::BagProcess(ros::NodeHandle& node_handle)
     const auto index_left_right = road_boundary_.findSides(index, last_point);
     if (index_left_right.first)
     {
-      road_boundary_.debugDraw(index_left_right.first.value(), false);
       left_points.push_back(index_left_right.first.value());
     }
     if (index_left_right.second)
     {
-      road_boundary_.debugDraw(index_left_right.second.value(), false);
       right_points.push_back(index_left_right.second.value());
     }
     last_point = index;
@@ -69,6 +68,46 @@ road_boundary::BagProcess::BagProcess(ros::NodeHandle& node_handle)
   }
   road_boundary_.fitCurve(left_points);
   road_boundary_.fitCurve(right_points);
+
+  // for (auto p : left_points)
+  // {
+  //   if (road_boundary_.point_to_func_.count(p) > 0)
+  //   {
+  //     if (road_boundary_.left_to_right_.count(p) > 0)
+  //     {
+  //       auto corres = road_boundary_.left_to_right_[p];
+  //       if (road_boundary_.point_to_func_.count(corres) > 0)
+  //       {
+  //         road_boundary_.debugDraw(p, false);
+  //         road_boundary_.debugDraw(corres, false);
+  //       }
+  //     }
+  //     else
+  //     {
+  //       road_boundary_.debugDraw(p, true);
+  //     }
+  //   }
+  // }
+  // for (auto p : right_points)
+  // {
+  //   if (road_boundary_.point_to_func_.count(p) > 0)
+  //   {
+  //     if (road_boundary_.right_to_left_.count(p) == 0)
+  //     {
+  //       road_boundary_.debugDraw(p, true);
+  //     }
+  //   }
+  // }
+
+  auto split_line = road_boundary_.splitLine(left_points, right_points);
+  std::vector<std::vector<cv::Point2d>> fin_data;
+  for (auto line : split_line)
+  {
+    auto gps = road_boundary_.convertToGPS(line);
+    fin_data.push_back(gps);
+  }
+
+  road_boundary_.writeToOsmFile(fin_data);
   road_boundary_.saveImage();
   bag.close();
 }

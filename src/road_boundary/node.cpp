@@ -11,10 +11,6 @@
 #include <ctime>
 #include <enway_helper/param_helper.hpp>
 #include <opencv2/core/types.hpp>
-#include <osmium/builder/attr.hpp>
-#include <osmium/builder/osm_object_builder.hpp>
-#include <osmium/io/any_output.hpp>
-#include <osmium/osm/location.hpp>
 #include <ostream>
 #include <std_msgs/Float64.h>
 
@@ -45,55 +41,14 @@ road_boundary::Node::Node(ros::NodeHandle& node_handle)
   dyn_reconf_server_.setCallback([this](auto&& config, auto&& level) { reconfigureCallback(config, level); });
 }
 
-void
-road_boundary::Node::writeToOSMFile(const std::vector<cv::Point2d> nodes)
-{
-  const osmium::io::File output_file {"test_osm_nodes", "xml"};
-  osmium::io::Header header;
-  header.set("generator", "test_nodes");
-
-  const size_t initial_buffer_size = 10000;
-  osmium::memory::Buffer buffer {initial_buffer_size, osmium::memory::Buffer::auto_grow::yes};
-  using namespace osmium::builder::attr;
-  for (size_t i = 0; i < nodes.size(); i++)
-  {
-    osmium::builder::add_node(buffer,
-                              _id(i + 1),
-                              _version(1),
-                              _timestamp(std::time(nullptr)),
-                              _location(osmium::Location {nodes[i].y, nodes[i].x}));
-  }
-  osmium::io::Writer writer {output_file, header, osmium::io::overwrite::allow};
-  writer(std::move(buffer));
-  writer.close();
-}
-
-std::vector<cv::Point2d>
-road_boundary::Node::convertToGPS(const std::vector<cv::Point2i> points)
-{
-  std::vector<cv::Point2d> gps_points;
-  cv::Point2d center;
-  center.x = 1.3541351067;
-  center.y = 103.695233561;
-
-  for (const auto point : points)
-  {
-    cv::Point2d gps;
-    gps.x = center.x - 0.1 * static_cast<double>(point.x) / 111320.0;
-    gps.y = center.y - 0.1 * static_cast<double>(point.y) / (111320.0 * std::cos(M_PI * gps.x / 180.0));
-    gps_points.push_back(gps);
-  }
-  return gps_points;
-}
-
 bool
 road_boundary::Node::saveNodeCallback(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
 {
-  auto all_nodes = convertToGPS(left_points_);
-  const auto right_nodes = convertToGPS(right_points_);
-  all_nodes.insert(all_nodes.end(), right_nodes.begin(), right_nodes.end());
-  ROS_INFO_STREAM("Number of nodes " << all_nodes.size());
-  writeToOSMFile(all_nodes);
+  // auto all_nodes = convertToGPS(left_points_);
+  // const auto right_nodes = convertToGPS(right_points_);
+  // all_nodes.insert(all_nodes.end(), right_nodes.begin(), right_nodes.end());
+  // ROS_INFO_STREAM("Number of nodes " << all_nodes.size());
+  // writeToOSMFile(all_nodes);
   return true;
 }
 
