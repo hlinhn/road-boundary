@@ -12,9 +12,10 @@
 #include <opencv2/core/types.hpp>
 #include <string>
 
+#include <road_boundary/helper.h>
+
 namespace road_boundary
 {
-double pointDistance(cv::Point2i p, cv::Point2i q);
 struct ComparePoints
 {
   bool
@@ -38,14 +39,16 @@ class RoadBoundary
 {
 public:
   RoadBoundary();
+  void setConfig(RoadBoundaryConfig config);
 
   BoundaryParam params_;
   void setPath(const std::string& path);
   cv::Point2i convertToIndex(const double x, const double y);
-  std::pair<std::optional<cv::Point2i>, std::optional<cv::Point2i>> findSides(const cv::Point2i current,
-                                                                              const cv::Point2i last_point);
+  std::vector<std::optional<cv::Point2i>> findSides(const cv::Point2i current, const cv::Point2i last_point);
   void debugDraw(cv::Point2i point, bool root);
+  void drawId(cv::Point2i point, int id);
   void saveImage();
+  void testROI(std::vector<std::vector<cv::Point2i>> lines);
   void drawApproximateLine(std::vector<cv::Point2i> points, int func_id);
   void drawCubicBezier(std::vector<cv::Point2d> controls);
   void fitCurve(std::vector<cv::Point2i> points);
@@ -53,6 +56,7 @@ public:
   std::vector<std::vector<cv::Point2i>> splitLine(std::vector<cv::Point2i> left_points,
                                                   std::vector<cv::Point2i> right_points);
   std::vector<cv::Point2d> convertToGPS(const std::vector<cv::Point2i> points);
+  std::optional<cv::Point2i> projectPoint(cv::Point2i point);
 
 private:
   int func_id_counter_;
@@ -67,9 +71,9 @@ private:
 
   bool read(const std::string& file_path);
   cv::Point2d getDirection(const cv::Point2i prev, const cv::Point2i cur);
-  std::optional<cv::Point2i> searchPoint(const cv::Point2i current, const cv::Point2d direction);
-  std::optional<cv::Vec<uint16_t, 4>> queryPoint(const cv::Point2i index);
-  bool checkPoint(const cv::Point2i index);
+  std::vector<std::optional<cv::Point2i>> searchPoint(const cv::Point2i current, const cv::Point2d direction);
+  std::optional<unsigned char> queryPoint(const cv::Point2i index);
+  unsigned char checkPoint(const cv::Point2i index);
   std::vector<std::vector<cv::Point2i>> splitPoints(std::vector<cv::Point2i> points);
 };
 

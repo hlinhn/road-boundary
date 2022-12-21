@@ -4,8 +4,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_CATKIN_DEPS
-    dynamic_reconfigure
-    enway_helper
     nav_msgs
     pcl_conversions
     pcl_ros
@@ -24,13 +22,11 @@ find_package(catkin REQUIRED
 
 find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED)
+find_package(yaml-cpp REQUIRED)
+set(YAML_CPP_LIBS yaml-cpp)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 find_package(Osmium REQUIRED)
-
-generate_dynamic_reconfigure_options(
-  config/RoadBoundary.cfg
-)
 
 catkin_package(
   INCLUDE_DIRS
@@ -49,14 +45,13 @@ set(PPL_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/../point_projection")
 include_directories(
   include
   ${PPL_INCLUDE_DIRS}
+  ${YAML_CPP_INCLUDE_DIR}
   SYSTEM ${catkin_INCLUDE_DIRS}
   SYSTEM ${OpenCV_INCLUDE_DIRS}
   SYSTEM ${PCL_INCLUDE_DIRS}
 )
 
 add_subdirectory(src/${PROJECT_NAME})
-
-add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 
 ########################################################
 # Installs
