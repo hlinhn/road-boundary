@@ -23,9 +23,17 @@ struct RoadBoundaryConfig
   double min_distance_curve;
   std::string save_folder;
   unsigned int curb_threshold;
+  std::string map_origin;
+};
+
+struct GPSOrigin
+{
+  cv::Point2d center;
+  double angle;
 };
 
 RoadBoundaryConfig readConfig(std::string filename);
+GPSOrigin readMapOrigin(std::string filename);
 double distance(cv::Point2i p, cv::Point2i q);
 cv::Point2i convertToIndex(const double x, const double y, const double resolution, const cv::Size image_size);
 std::vector<cv::Point2i> parseBagPath(std::string bag_path, cv::Size image_size, double resolution, std::string topic);

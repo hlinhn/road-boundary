@@ -30,7 +30,19 @@ readConfig(std::string filename)
   config.min_distance_curve = yaml["min_distance_curve"].as<double>();
   config.save_folder = yaml["save_folder"].as<std::string>();
   config.curb_threshold = yaml["curb_threshold"].as<unsigned int>();
+  config.map_origin = yaml["map_origin"].as<std::string>();
   return config;
+}
+
+GPSOrigin
+readMapOrigin(std::string filename)
+{
+  GPSOrigin origin;
+  const auto yaml = YAML::LoadFile(filename);
+  origin.center.x = yaml["center"]["x"].as<double>();
+  origin.center.y = yaml["center"]["y"].as<double>();
+  origin.angle = yaml["angle"].as<double>();
+  return origin;
 }
 
 double

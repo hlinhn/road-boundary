@@ -8,10 +8,11 @@ split_distance_threshold: 20.0
 min_set_size: 4
 tolerance: 0.5
 min_time_diff: 1.5
-route_graph: ""
+route_graph: "/home/linh/network-graph.yaml"
 lane_min_width: 3.0
 min_curve_size: 5
 min_distance_curve: 0.5
 resolution: 0.25
 curb_threshold: 190
 save_folder: "/home/linh"
+map_origin: "/home/linh/repos/utils/src/road_boundary/config/cleantech_map.yaml"

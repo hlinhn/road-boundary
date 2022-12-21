@@ -358,11 +358,9 @@ std::vector<cv::Point2d>
 road_boundary::RoadBoundary::convertToGPS(const std::vector<cv::Point2i> points)
 {
   std::vector<cv::Point2d> gps_points;
-  cv::Point2d center;
-  center.x = 1.3541351067 - 0.0015;
-  center.y = 103.695233561 + 0.00491;
-
-  double angle = 62;
+  GPSOrigin origin = readMapOrigin(config_.map_origin);
+  cv::Point2d center = origin.center;
+  double angle = origin.angle;
   double cos = std::cos(angle * M_PI / 180.0);
   double sin = std::sin(angle * M_PI / 180.0);
 
