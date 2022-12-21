@@ -37,41 +37,28 @@ road_boundary::RoadBoundary::RoadBoundary()
 void
 road_boundary::RoadBoundary::setConfig(RoadBoundaryConfig config)
 {
-}
-
-void
-road_boundary::RoadBoundary::setPath(const std::string& path)
-{
-  boost::filesystem::path image_path(path);
+  config_ = config;
+  boost::filesystem::path image_path(config.image_path);
   image_path = boost::filesystem::canonical(image_path);
 
-  if (!read(image_path.string()))
-  {
-    throw std::invalid_argument("No such file exists");
-  }
+  image_ = cv::imread(image_path.string().c_str(), cv::IMREAD_UNCHANGED);
+  debug_image_ = image_.clone();
+  image_size_ = image_.cols;
 }
 
 void
 road_boundary::RoadBoundary::saveImage()
 {
-  cv::imwrite("/home/linh/test_image.png", debug_image_);
-}
-
-bool
-road_boundary::RoadBoundary::read(const std::string& file_path)
-{
-  image_ = cv::imread(file_path, cv::IMREAD_UNCHANGED);
-  debug_image_ = image_.clone();
-  image_size_ = image_.cols;
-  params_.resolution = 0.25;
-  return true;
+  std::string save_image_name = config_.save_folder;
+  save_image_name.append("/test_image.png");
+  cv::imwrite(save_image_name, debug_image_);
 }
 
 cv::Point2i
 road_boundary::RoadBoundary::convertToIndex(const double x, const double y)
 {
-  const auto x_index = -y / params_.resolution + image_size_ / 2.0;
-  const auto y_index = -x / params_.resolution + image_size_ / 2.0;
+  const auto x_index = -y / config_.resolution + image_size_ / 2.0;
+  const auto y_index = -x / config_.resolution + image_size_ / 2.0;
   return cv::Point2i(static_cast<int>(x_index), static_cast<int>(y_index));
 }
 
@@ -131,8 +118,8 @@ std::vector<std::optional<cv::Point2i>>
 road_boundary::RoadBoundary::searchPoint(const cv::Point2i current, const cv::Point2d direction)
 {
   std::vector<std::optional<cv::Point2i>> points;
-  auto max_dx = static_cast<int>(direction.x * params_.max_distance_search / params_.resolution);
-  auto max_dy = static_cast<int>(direction.y * params_.max_distance_search / params_.resolution);
+  auto max_dx = static_cast<int>(direction.x * config_.search_threshold / config_.resolution);
+  auto max_dy = static_cast<int>(direction.y * config_.search_threshold / config_.resolution);
   const auto dest_x = current.x + max_dx;
   const auto dest_y = current.y + max_dy;
   const auto sx = max_dx > 0 ? 1 : -1;
@@ -152,7 +139,7 @@ road_boundary::RoadBoundary::searchPoint(const cv::Point2i current, const cv::Po
     }
     debug_image_.at<unsigned char>(index.y, index.x) = 255;
     auto value = checkPoint(index);
-    if (value >= 200)
+    if (value >= config_.curb_threshold)
     {
       points.push_back(index);
       return points;
@@ -204,11 +191,11 @@ road_boundary::RoadBoundary::findSides(const cv::Point2i current, const cv::Poin
   left_vector.y = -direction.x;
   auto left_side = searchPoint(current, left_vector);
 
-  // if (right_side.has_value() && left_side.has_value())
-  // {
-  //   left_to_right_[left_side.value()] = right_side.value();
-  //   right_to_left_[right_side.value()] = left_side.value();
-  // }
+  if (right_side[right_side.size() - 1].has_value() && left_side[left_side.size() - 1].has_value())
+  {
+    left_to_right_[left_side[left_side.size() - 1].value()] = right_side[right_side.size() - 1].value();
+    right_to_left_[right_side[right_side.size() - 1].value()] = left_side[left_side.size() - 1].value();
+  }
 
   std::reverse(left_side.begin(), left_side.end());
   left_side.insert(left_side.end(), right_side.begin(), right_side.end());
@@ -240,7 +227,7 @@ road_boundary::RoadBoundary::drawApproximateLine(std::vector<cv::Point2i> points
 {
   for (unsigned int i = 0; i < points.size() - 1; i++)
   {
-    cv::line(debug_image_, points[i], points[i + 1], cv::Scalar(255), 1, cv::LINE_8);
+    cv::line(debug_image_, points[i], points[i + 1], cv::Scalar(150), 1, cv::LINE_8);
   }
   // cv::putText(
   //     debug_image_, std::to_string(func_id), points[0], cv::FONT_HERSHEY_COMPLEX, 1, cv::Scalar(150), 1, cv::LINE_8);
@@ -249,12 +236,12 @@ road_boundary::RoadBoundary::drawApproximateLine(std::vector<cv::Point2i> points
 void
 road_boundary::RoadBoundary::drawCubicBezier(std::vector<cv::Point2d> controls)
 {
-  std::cout << "BEZIER " << std::endl;
-  for (const auto p : controls)
-  {
-    std::cout << p.x << " " << p.y << std::endl;
-  }
-  std::cout << "-----" << std::endl;
+  // std::cout << "BEZIER " << std::endl;
+  // for (const auto p : controls)
+  // {
+  //   std::cout << p.x << " " << p.y << std::endl;
+  // }
+  // std::cout << "-----" << std::endl;
   std::vector<cv::Point2i> points;
   for (int i = 0; i < 21; i++)
   {
@@ -266,7 +253,7 @@ road_boundary::RoadBoundary::drawCubicBezier(std::vector<cv::Point2d> controls)
     p.y = static_cast<int>(q * q * q * controls[0].y + 3 * q * q * t * controls[1].y + 3 * q * t * t * controls[2].y
                            + t * t * t * controls[3].y);
     points.push_back(p);
-    std::cout << i << " " << p.x << " " << p.y << std::endl;
+    // std::cout << i << " " << p.x << " " << p.y << std::endl;
   }
   drawApproximateLine(points, 0);
 }
@@ -287,21 +274,21 @@ road_boundary::RoadBoundary::splitPoints(std::vector<cv::Point2i> points)
     cv::Point2i pc(cur.x - prev.x, cur.y - prev.y);
     cv::Point2i cn(next.x - cur.x, next.y - cur.y);
     double cosine = (pc.x * cn.x + pc.y * cn.y) / (distance(cur, prev) * distance(next, cur));
-    if (cosine < params_.cosine_threshold)
+    if (cosine < config_.cosine_threshold)
     {
       cur_set.push_back(cur);
       point_sets.push_back(cur_set);
       cur_set.clear();
       continue;
     }
-    if (distance(cur, next) > params_.split_distance_threshold)
+    if (distance(cur, next) > config_.split_distance_threshold / config_.resolution)
     {
       cur_set.push_back(cur);
       point_sets.push_back(cur_set);
       cur_set.clear();
       continue;
     }
-    if (cur_set.size() == 0 && distance(cur, prev) <= params_.split_distance_threshold)
+    if (cur_set.size() == 0 && distance(cur, prev) <= config_.split_distance_threshold / config_.resolution)
     {
       cur_set.push_back(prev);
     }
@@ -315,28 +302,29 @@ void
 road_boundary::RoadBoundary::fitCurve(std::vector<cv::Point2i> points)
 {
   const auto size = points.size();
-  if (size < 10)
+  if (size < config_.min_curve_size)
   {
     return;
   }
-  if (distance(points[0], points[size - 1]) < 5.0)
+  if (distance(points[0], points[size - 1]) < config_.min_distance_curve / config_.resolution)
   {
     return;
   }
   auto split_points = splitPoints(points);
   std::vector<std::vector<cv::Point2i>> curves;
-  std::cout << "SPLIT INTO " << split_points.size() << std::endl;
+  // std::cout << "SPLIT INTO " << split_points.size() << std::endl;
+  auto half_size = image_size_ / 2.0;
   for (const auto pset : split_points)
   {
-    std::cout << "CUR SET " << pset.size() << std::endl;
-    if (pset.size() < params_.min_set_size)
+    // std::cout << "CUR SET " << pset.size() << std::endl;
+    if (pset.size() < config_.min_set_size)
     {
       continue;
     }
-    for (const auto p : pset)
-    {
-      std::cout << p.x << " " << p.y << std::endl;
-    }
+    // for (const auto p : pset)
+    // {
+    //   std::cout << p.x << " " << p.y << std::endl;
+    // }
     std::vector<cv::Point2i> output;
 
     std::vector<double> xs;
@@ -344,8 +332,8 @@ road_boundary::RoadBoundary::fitCurve(std::vector<cv::Point2i> points)
 
     for (int i = 0; i < pset.size(); i++)
     {
-      xs.push_back((pset[i].y - 1600) / 1600.0);
-      ys.push_back((pset[i].x - 1600) / 1600.0);
+      xs.push_back((pset[i].y - half_size) / half_size);
+      ys.push_back((pset[i].x - half_size) / half_size);
     }
     std::vector<double> results = polyfit_Eigen(xs, ys, 7);
     const auto fitted_val = polyval(results, xs);
@@ -355,14 +343,14 @@ road_boundary::RoadBoundary::fitCurve(std::vector<cv::Point2i> points)
     for (unsigned int i = 0; i < xs.size(); i++)
     {
       point_to_func_[pset[i]] = func_id_counter_;
-      std::cout << xs[i] << " " << ys[i] << " " << fitted_val[i] << std::endl;
+      // std::cout << xs[i] << " " << ys[i] << " " << fitted_val[i] << std::endl;
       cv::Point2i p;
-      p.x = static_cast<int>(fitted_val[i] * 1600.0 + 1600);
-      p.y = static_cast<int>(xs[i] * 1600.0 + 1600);
+      p.x = static_cast<int>(fitted_val[i] * half_size + half_size);
+      p.y = static_cast<int>(xs[i] * half_size + half_size);
       output.push_back(p);
     }
     drawApproximateLine(output, func_id_counter_);
-    std::cout << "=============\n";
+    // std::cout << "=============\n";
   }
 }
 
@@ -382,14 +370,12 @@ road_boundary::RoadBoundary::convertToGPS(const std::vector<cv::Point2i> points)
   for (const auto point : points)
   {
     cv::Point2d rotated;
-    rotated.x = (point.x * cos - point.y * sin) * params_.resolution;
-    rotated.y = (point.y * cos + point.x * sin) * params_.resolution;
+    rotated.x = (point.x * cos - point.y * sin) * config_.resolution;
+    rotated.y = (point.y * cos + point.x * sin) * config_.resolution;
     cv::Point2d gps;
     auto gpspoint = projector.reverse(lanelet::BasicPoint3d(-rotated.y, -rotated.x, 0));
     gps.x = gpspoint.lat;
     gps.y = gpspoint.lon;
-    // gps.x = center.x - 0.1 * static_cast<double>(rotated.x) / 111320.0;
-    // gps.y = center.y - 0.1 * static_cast<double>(rotated.y) / (111320.0 * std::cos(M_PI * gps.x / 180.0));
     gps_points.push_back(gps);
   }
   return gps_points;
@@ -398,6 +384,7 @@ road_boundary::RoadBoundary::convertToGPS(const std::vector<cv::Point2i> points)
 std::vector<std::vector<cv::Point2i>>
 road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std::vector<cv::Point2i> right_points)
 {
+  // std::cout << point_to_func_.size() << std::endl;
   std::vector<std::vector<cv::Point2i>> split;
   std::vector<cv::Point2i> cur_left;
   std::vector<cv::Point2i> cur_right;
@@ -425,6 +412,7 @@ road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std
         {
           point_to_index[pl] = split.size();
         }
+        cur_left.push_back(p);
         split.push_back(cur_left);
       }
       cur_left.clear();
@@ -450,6 +438,7 @@ road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std
             {
               point_to_index[pl] = split.size();
             }
+            cur_left.push_back(p);
             split.push_back(cur_left);
           }
           cur_left.clear();
@@ -490,6 +479,7 @@ road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std
         {
           point_to_index[pr] = split.size();
         }
+        cur_right.push_back(p);
         split.push_back(cur_right);
       }
       cur_right.clear();
@@ -515,6 +505,7 @@ road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std
             {
               point_to_index[pr] = split.size();
             }
+            cur_right.push_back(p);
             split.push_back(cur_right);
           }
           cur_right.clear();
@@ -533,6 +524,7 @@ road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std
     split.push_back(cur_right);
   }
 
+  // std::cout << point_to_index.size() << std::endl;
   for (int i = 0; i <= last_left_id; i++)
   {
     const auto pl = split[i];
@@ -540,8 +532,8 @@ road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std
     {
       if (left_to_right_.count(p) > 0 && point_to_index.count(left_to_right_[p]) > 0)
       {
-        std::cout << left_to_right_[p].x << " " << left_to_right_[p].y << std::endl;
-        std::cout << point_to_index[p] << " " << point_to_index[left_to_right_[p]] << std::endl;
+        // std::cout << left_to_right_[p].x << " " << left_to_right_[p].y << std::endl;
+        // std::cout << point_to_index[p] << " " << point_to_index[left_to_right_[p]] << std::endl;
         lanelet_id_map_[i] = point_to_index[left_to_right_[p]];
         break;
       }
@@ -550,84 +542,12 @@ road_boundary::RoadBoundary::splitLine(std::vector<cv::Point2i> left_points, std
   return split;
 }
 
-std::optional<cv::Point2i>
-road_boundary::RoadBoundary::projectPoint(cv::Point2i point)
-{
-  if (point_to_func_.count(point) == 0)
-  {
-    std::cout << "This point does not belong to one of the original function" << std::endl;
-    return std::nullopt;
-  }
-  auto func = func_id_map_[point_to_func_[point]];
-  double slope = func[1];
-  double orig_x_var = (point.y - 4000) / 4000.0;
-  double cur_x_var = orig_x_var;
-  for (size_t i = 2; i < func.size(); i++)
-  {
-    slope += i * func[i] * cur_x_var;
-    cur_x_var *= orig_x_var;
-  }
-  if (std::abs(slope) < 1e-5)
-  {
-    std::cout << "Slope too close to 0" << std::endl;
-    return std::nullopt;
-  }
-  auto new_slope = -1 / slope;
-  // solve 7th order polynomial?
-  return std::nullopt;
-}
-
-void
-road_boundary::RoadBoundary::testROI(std::vector<std::vector<cv::Point2i>> lines)
-{
-  auto lane_image = cv::imread("/home/linh/Downloads/bags/cleantech/lane_grid_map_drivable.png", cv::IMREAD_UNCHANGED);
-  cv::Mat new_lane(lane_image.rows, lane_image.cols, lane_image.type());
-  std::vector<std::vector<cv::Point2i>> contours;
-  cv::Mat mask = cv::Mat::zeros(lane_image.rows, lane_image.cols, CV_8U);
-  for (const auto idp : lanelet_id_map_)
-  {
-    auto left = lines[idp.first];
-    auto right = lines[idp.second];
-    std::reverse(right.begin(), right.end());
-    left.insert(left.end(), right.begin(), right.end());
-    contours.push_back(left);
-    // break;
-  }
-  cv::fillPoly(mask, contours, cv::Scalar(1));
-  lane_image.copyTo(new_lane, mask);
-  cv::imwrite("/home/linh/test_lane_image.png", new_lane);
-
-  cv::Mat blur_im;
-  cv::Mat canny;
-  cv::Mat output;
-  new_lane.convertTo(blur_im, CV_8U);
-  cv::blur(blur_im, canny, cv::Size(5, 5));
-  cv::Canny(canny, output, 0, 1);
-  std::vector<cv::Vec3f> detected;
-
-  cv::HoughLines(output, detected, 1, CV_PI / 180, 70, 0, 0);
-  std::cout << "DETECTED " << detected.size() << std::endl;
-
-  for (auto l : detected)
-  {
-    auto theta = l[1];
-    auto rho = l[0];
-    auto vote = l[2];
-    auto a = cos(theta);
-    auto b = sin(theta);
-    auto x = a * rho;
-    auto y = b * rho;
-    auto p1n = cv::Point(static_cast<int>(x + 4000 * -b), static_cast<int>(y + 4000 * a));
-    auto p2n = cv::Point(static_cast<int>(x + 4000 * b), static_cast<int>(y - 4000 * a));
-    cv::line(output, p1n, p2n, cv::Scalar(255), 1, cv::LINE_AA);
-  }
-  cv::imwrite("/home/linh/test_lane_image_imm.png", output);
-}
-
 void
 road_boundary::RoadBoundary::writeToOsmFile(const std::vector<std::vector<cv::Point2d>> points)
 {
-  const osmium::io::File output_file {"test_osm_nodes.osm", "xml"};
+  std::string save_osm_name = config_.save_folder;
+  save_osm_name.append("/test_osm_nodes.osm");
+  const osmium::io::File output_file {save_osm_name, "xml"};
   osmium::io::Header header;
   header.set("generator", "test_nodes");
 

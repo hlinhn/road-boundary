@@ -1,0 +1,17 @@
+image_path: "/home/linh/inner_region_with_extra.png"
+bag_path: "/home/linh/.ros/maps/convert_from_trajectory.bag"
+cosine_threshold: 0.95
+distance_threshold: 3.0
+search_threshold: 15.0
+topic_name: "/global_odom"
+split_distance_threshold: 20.0
+min_set_size: 4
+tolerance: 0.5
+min_time_diff: 1.5
+route_graph: ""
+lane_min_width: 3.0
+min_curve_size: 5
+min_distance_curve: 0.5
+resolution: 0.25
+curb_threshold: 190
+save_folder: "/home/linh"
