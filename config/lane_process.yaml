@@ -1,0 +1,20 @@
+image_path: "/home/linh/inner_region.png"
+erode:
+  size: 7
+  point: 3
+lane_image_path: "/home/linh/Downloads/bags/cleantech/lane_grid_map_drivable.png"
+masked_alpha: 65025
+threshold:
+  value: 2550
+  max: 65025
+contour:
+  min_area: 60
+save_extra_lane: "/home/linh/image_with_extra_lanes.png"
+blur:
+  kernel: 3
+edge:
+  size: 3
+  scale: 1
+  delta: 0
+lane_alpha: 0.5
+save_image: "/home/linh/inner_region_with_extra.png"

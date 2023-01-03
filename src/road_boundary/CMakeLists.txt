@@ -31,6 +31,11 @@ target_link_libraries(
 add_executable(
   test_map
   test_map.cpp
+  helper.cpp
   )
 
-target_link_libraries(test_map ${catkin_LIBRARIES})
+target_link_libraries(
+  test_map
+  ${catkin_LIBRARIES}
+  ${YAML_CPP_LIBS}
+)

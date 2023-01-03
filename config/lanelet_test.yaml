@@ -1,0 +1,8 @@
+map_origin: "/home/linh/repos/utils/src/road_boundary/config/cleantech_map.yaml"
+map: "/home/linh/test_osm_nodes.osm"
+resolution: 0.25
+image_size: 3200
+test_bag_path: "/home/linh/.ros/maps/convert_from_trajectory.bag"
+topic: "/global_odom"
+query_distance: 50.0
+max_distance: 50.0
